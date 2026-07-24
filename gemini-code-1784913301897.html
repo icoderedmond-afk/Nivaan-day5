@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Pro Cricket Championship</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #0f111a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-wrapper {
+            position: relative;
+            width: 850px;
+            height: 640px;
+            background: #181b26;
+            border-radius: 16px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+            border: 2px solid #2a2f45;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top HUD Scoreboard */
+        #scoreboard {
+            background: #0b0d13;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #00e699;
+            z-index: 10;
+        }
+
+        .score-team {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #00e699;
+            letter-spacing: 1px;
+        }
+
+        .score-main {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(0,230,153,0.3);
+        }
+
+        .score-sub {
+            font-size: 0.9rem;
+            color: #a0a8c0;
+            margin-top: 2px;
+        }
+
+        .player-tag {
+            background: #1e2333;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            color: #ffcc00;
+            border: 1px solid #333a52;
+            display: inline-block;
+            margin-top: 4px;
+        }
+
+        .bowler-tag {
+            color: #00e699;
+        }
+
+        .innings-tag {
+            background: #00e699;
+            color: #000;
+            font-weight: bold;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            margin-left: 8px;
+        }
+
+        /* Canvas Field */
+        canvas {
+            background: #1e7b3a;
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* Overlay Notification Message */
+        #status-overlay {
+            position: absolute;
+            top: 42%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            pointer-events: none;
+            opacity: 0;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+            text-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            text-align: center;
+            white-space: pre-line;
+        }
+
+        /* Controls Panel */
+        #controls-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 16px;
+            z-index: 10;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #00e699, #0099ff);
+            border: none;
+            color: #000;
+            padding: 12px 30px;
+            font-size: 1rem;
+            font-weight: 800;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+            transition: all 0.15s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 230, 153, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-swing {
+            background: linear-gradient(135deg, #ff3366, #ff9900);
+            color: #fff;
+        }
+
+        .btn-type {
+            background: #1e2333;
+            color: #00e699;
+            border: 1px solid #00e699;
+        }
+
+        /* Start & Modal Overlays */
+        #modal-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(10, 12, 18, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .card {
+            background: #181b26;
+            padding: 32px;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 440px;
+            border: 1px solid #2a2f45;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.8);
+        }
+
+        .card h1 {
+            color: #00e699;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #a0a8c0;
+            margin-bottom: 6px;
+        }
+
+        .form-group select {
+            width: 100%;
+            padding: 10px 14px;
+            background: #0f111a;
+            border: 1px solid #2a2f45;
+            color: #fff;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="scoreboard">
+        <div>
+            <div class="score-team" id="ui-match-header">IND vs AUS <span class="innings-tag" id="ui-innings-tag">1st INNINGS</span></div>
+            <div class="player-tag">🏏 <span id="ui-batter-name">Rohit Sharma</span>: <span id="ui-batter-runs">0</span>*</div>
+            <div class="player-tag bowler-tag">⚾ <span id="ui-bowler-name">Pat Cummins</span> (<span id="ui-bowler-type">PACER</span>): <span id="ui-bowler-stats">0/0</span></div>
+        </div>
+        <div style="text-align: right;">
+            <div class="score-main" id="ui-score">0 / 0</div>
+            <div class="score-sub" id="ui-target" style="display:none; color: #ffcc00;">Target: 0</div>
+            <div class="score-sub" id="ui-overs">Overs: 0.0</div>
+        </div>
+    </div>
+
+    <canvas id="cricketCanvas" width="850" height="500"></canvas>
+
+    <div id="status-overlay">SIX!</div>
+
+    <div id="controls-bar">
+        <button class="btn" id="btn-bowl">BOWL BALL</button>
+        <button class="btn btn-swing" id="btn-swing" style="display: none;">SWING BAT (SPACE)</button>
+
+        <button class="btn btn-type" id="btn-toggle-bowl-type" style="display: none;">TYPE: PACER</button>
+        <button class="btn" id="btn-user-bowl" style="display: none;">DELIVER BALL</button>
+    </div>
+
+    <div id="modal-screen">
+        <div class="card" id="modal-card">
+            <h1 id="modal-title">2D CRICKET CHAMPIONSHIP</h1>
+
+            <div id="setup-form">
+                <div class="form-group">
+                    <label for="select-user-team">Your Team:</label>
+                    <select id="select-user-team"></select>
+                </div>
+
+                <div class="form-group">
+                    <label for="select-opp-team">Opponent Team:</label>
+                    <select id="select-opp-team"></select>
+                </div>
+
+                <div class="form-group">
+                    <label for="select-batter">Select Opening Striker:</label>
+                    <select id="select-batter"></select>
+                </div>
+            </div>
+
+            <div id="game-over-summary" style="display:none; margin: 20px 0;">
+                <h2 id="summary-title" style="color: #ff3366;">ALL OUT!</h2>
+                <p id="final-score-text" style="font-size: 1.2rem; margin-top: 10px; white-space: pre-line;"></p>
+            </div>
+
+            <button class="btn" id="btn-start-game" style="width: 100%; margin-top: 10px;">START MATCH</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Teams Data
+    const teamsData = {
+        "India": {
+            color: "#0066ff",
+            batsmen: ["Rohit Sharma", "Virat Kohli", "Shubman Gill", "Suryakumar Yadav", "Rishabh Pant", "Hardik Pandya", "Ravindra Jadeja", "Jasprit Bumrah", "Kuldeep Yadav", "Arshdeep Singh", "Mohammed Siraj"],
+            bowlers: [
+                { name: "Jasprit Bumrah", type: "PACER" },
+                { name: "Kuldeep Yadav", type: "SPINNER" },
+                { name: "Hardik Pandya", type: "PACER" },
+                { name: "Ravindra Jadeja", type: "SPINNER" }
+            ]
+        },
+        "Australia": {
+            color: "#ffcc00",
+            batsmen: ["Travis Head", "Steve Smith", "Marnus Labuschagne", "Mitchell Marsh", "Glenn Maxwell", "Josh Inglis", "Pat Cummins", "Mitchell Starc", "Adam Zampa", "Josh Hazlewood", "Nathan Lyon"],
+            bowlers: [
+                { name: "Pat Cummins", type: "PACER" },
+                { name: "Adam Zampa", type: "SPINNER" },
+                { name: "Mitchell Starc", type: "PACER" },
+                { name: "Nathan Lyon", type: "SPINNER" }
+            ]
+        },
+        "England": {
+            color: "#ff3333",
+            batsmen: ["Jos Buttler", "Phil Salt", "Harry Brook", "Joe Root", "Ben Stokes", "Liam Livingstone", "Sam Curran", "Jofra Archer", "Adil Rashid", "Mark Wood", "Rehan Ahmed"],
+            bowlers: [
+                { name: "Jofra Archer", type: "PACER" },
+                { name: "Adil Rashid", type: "SPINNER" },
+                { name: "Mark Wood", type: "PACER" },
+                { name: "Rehan Ahmed", type: "SPINNER" }
+            ]
+        },
+        "Pakistan": {
+            color: "#009933",
+            batsmen: ["Babar Azam", "Mohammad Rizwan", "Fakhar Zaman", "Saim Ayub", "Shadab Khan", "Iftikhar Ahmed", "Shaheen Afridi", "Naseem Shah", "Haris Rauf", "Abrar Ahmed", "Mohammad Nawaz"],
+            bowlers: [
+                { name: "Shaheen Afridi", type: "PACER" },
+                { name: "Shadab Khan", type: "SPINNER" },
+                { name: "Haris Rauf", type: "PACER" },
+                { name: "Abrar Ahmed", type: "SPINNER" }
+            ]
+        }
+    };
+
+    // State Variables
+    let gameState = {
+        userTeam: "India",
+        oppTeam: "Australia",
+        currentInnings: 1, 
+        firstInningsRuns: 0,
+        
+        batterIndex: 0,
+        batterName: "",
+        batterRuns: 0,
+        hasCelebrated50: false,
+        bowlerIndex: 0,
+        bowlerStats: { wickets: 0, runsConceded: 0 },
+        
+        totalRuns: 0,
+        totalWickets: 0,
+        totalBalls: 0,
+        
+        isBowling: false,
+        canSwing: false,
+        ballHit: false,
+        bowlerRunProgress: 0,
+        isProcessingBall: false,
+
+        userBowlerType: "PACER",
+        targetPitchPos: { x: 425, y: 280 }
+    };
+
+    // Canvas Setup
+    const canvas = document.getElementById('cricketCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const pitch = { x: 375, y: 50, width: 100, height: 400 };
+    const batterPos = { x: 425, y: 415 };
+    const bowlerStartPos = { x: 425, y: 30 };
+    const bowlerPitchPos = { x: 425, y: 75 };
+    
+    // Accurate Stumps Collision Box
+    const wicketRect = { x: 418, y: 420, width: 15, height: 18 };
+
+    // Fielders Positions
+    const fielders = [
+        { x: 180, y: 220 },
+        { x: 670, y: 220 },
+        { x: 425, y: 160 },
+        { x: 160, y: 380 },
+        { x: 690, y: 380 }
+    ];
+    let activeCatchFielder = null;
+    
+    let currentBowlerPos = { ...bowlerStartPos };
+
+    let ball = {
+        x: bowlerPitchPos.x,
+        y: bowlerPitchPos.y,
+        vx: 0,
+        vy: 0,
+        radius: 6,
+        active: false,
+        bounced: false
+    };
+
+    let batState = {
+        angle: -0.2,
+        celebrating: false
+    };
+
+    // UI Elements
+    const selectUser = document.getElementById('select-user-team');
+    const selectOpp = document.getElementById('select-opp-team');
+    const selectBatter = document.getElementById('select-batter');
+    
+    const btnBowl = document.getElementById('btn-bowl');
+    const btnSwing = document.getElementById('btn-swing');
+    const btnToggleBowlType = document.getElementById('btn-toggle-bowl-type');
+    const btnUserBowl = document.getElementById('btn-user-bowl');
+    
+    const overlayMsg = document.getElementById('status-overlay');
+
+    // Populate Selection Controls
+    function initDropdowns() {
+        selectUser.innerHTML = '';
+        selectOpp.innerHTML = '';
+        Object.keys(teamsData).forEach(team => {
+            selectUser.add(new Option(team, team));
+            selectOpp.add(new Option(team, team));
+        });
+        selectUser.value = "India";
+        selectOpp.value = "Australia";
+        updateBatterDropdown();
+    }
+
+    function updateBatterDropdown() {
+        selectBatter.innerHTML = '';
+        const team = teamsData[selectUser.value];
+        if (team && team.batsmen) {
+            team.batsmen.forEach((p, idx) => {
+                selectBatter.add(new Option(p, idx));
+            });
+        }
+    }
+
+    selectUser.addEventListener('change', updateBatterDropdown);
+    initDropdowns();
+
+    // Mouse pitch target selector
+    canvas.addEventListener('click', (e) => {
+        if (gameState.currentInnings === 2 && !gameState.isBowling) {
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            if (clickX >= pitch.x && clickX <= pitch.x + pitch.width &&
+                clickY >= pitch.y + 100 && clickY <= pitch.y + pitch.height - 80) {
+                gameState.targetPitchPos = { x: clickX, y: clickY };
+            }
+        }
+    });
+
+    btnToggleBowlType.addEventListener('click', () => {
+        gameState.userBowlerType = gameState.userBowlerType === "PACER" ? "SPINNER" : "PACER";
+        btnToggleBowlType.innerText = `TYPE: ${gameState.userBowlerType}`;
+        updateScoreboard();
+    });
+
+    document.getElementById('btn-start-game').addEventListener('click', () => {
+        gameState.userTeam = selectUser.value;
+        gameState.oppTeam = selectOpp.value;
+        gameState.batterIndex = parseInt(selectBatter.value) || 0;
+        gameState.currentInnings = 1;
+
+        initInnings(1);
+
+        document.getElementById('ui-match-header').innerHTML = `${gameState.userTeam} vs ${gameState.oppTeam} <span class="innings-tag" id="ui-innings-tag">1st INNINGS</span>`;
+        document.getElementById('setup-form').style.display = 'block';
+        document.getElementById('game-over-summary').style.display = 'none';
+        document.getElementById('modal-title').innerText = "2D CRICKET CHAMPIONSHIP";
+        document.getElementById('btn-start-game').innerText = "START MATCH";
+        document.getElementById('modal-screen').style.display = 'none';
+
+        updateScoreboard();
+        resetBall();
+    });
+
+    function initInnings(innings) {
+        gameState.currentInnings = innings;
+        gameState.totalRuns = 0;
+        gameState.totalWickets = 0;
+        gameState.totalBalls = 0;
+        if (innings === 1) {
+            gameState.batterName = teamsData[gameState.userTeam].batsmen[gameState.batterIndex];
+        } else {
+            gameState.batterIndex = 0;
+            gameState.batterName = teamsData[gameState.oppTeam].batsmen[0];
+        }
+        gameState.batterRuns = 0;
+        gameState.hasCelebrated50 = false;
+        gameState.bowlerIndex = 0;
+        gameState.bowlerStats = { wickets: 0, runsConceded: 0 };
+
+        if (innings === 1) {
+            document.getElementById('ui-target').style.display = 'none';
+        } else {
+            const userBowlers = teamsData[gameState.userTeam].bowlers;
+            gameState.userBowlerType = userBowlers[0].type;
+            btnToggleBowlType.innerText = `TYPE: ${gameState.userBowlerType}`;
+
+            document.getElementById('ui-target').style.display = 'block';
+            document.getElementById('ui-target').innerText = `Target: ${gameState.firstInningsRuns + 1}`;
+            document.getElementById('ui-innings-tag').innerText = "2nd INNINGS";
+        }
+    }
+
+    btnBowl.addEventListener('click', startDeliverySequence);
+    btnUserBowl.addEventListener('click', startDeliverySequence);
+    btnSwing.addEventListener('click', swingBat);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' && gameState.canSwing && gameState.currentInnings === 1) {
+            swingBat();
+        }
+    });
+
+    function resetBall() {
+        currentBowlerPos = { ...bowlerStartPos };
+        ball.x = bowlerPitchPos.x;
+        ball.y = bowlerPitchPos.y;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.active = false;
+        ball.bounced = false;
+
+        gameState.isBowling = false;
+        gameState.canSwing = false;
+        gameState.ballHit = false;
+        gameState.bowlerRunProgress = 0;
+        gameState.isProcessingBall = false;
+        activeCatchFielder = null;
+
+        batState.angle = -0.2;
+        batState.celebrating = false;
+
+        if (gameState.currentInnings === 1) {
+            btnBowl.style.display = 'inline-block';
+            btnSwing.style.display = 'none';
+            btnToggleBowlType.style.display = 'none';
+            btnUserBowl.style.display = 'none';
+        } else {
+            btnBowl.style.display = 'none';
+            btnSwing.style.display = 'none';
+            btnToggleBowlType.style.display = 'inline-block';
+            btnUserBowl.style.display = 'inline-block';
+        }
+    }
+
+    function getCurrentBowlerObj() {
+        if (gameState.currentInnings === 1) {
+            return teamsData[gameState.oppTeam].bowlers[gameState.bowlerIndex % teamsData[gameState.oppTeam].bowlers.length];
+        } else {
+            const userBowlers = teamsData[gameState.userTeam].bowlers;
+            const bowler = userBowlers[gameState.bowlerIndex % userBowlers.length];
+            return { name: bowler.name, type: gameState.userBowlerType };
+        }
+    }
+
+    function startDeliverySequence() {
+        if (gameState.isBowling) return;
+
+        gameState.isBowling = true;
+
+        if (gameState.currentInnings === 1) {
+            btnBowl.style.display = 'none';
+            btnSwing.style.display = 'inline-block';
+        } else {
+            btnUserBowl.style.display = 'none';
+        }
+
+        const bowlerObj = getCurrentBowlerObj();
+        const runSpeed = bowlerObj.type === "PACER" ? 0.08 : 0.05;
+
+        let runInterval = setInterval(() => {
+            gameState.bowlerRunProgress += runSpeed;
+            currentBowlerPos.y = bowlerStartPos.y + (bowlerPitchPos.y - bowlerStartPos.y) * gameState.bowlerRunProgress;
+
+            if (gameState.bowlerRunProgress >= 1) {
+                clearInterval(runInterval);
+                releaseBall();
+            }
+        }, 20);
+    }
+
+    function releaseBall() {
+        gameState.canSwing = true;
+        ball.x = bowlerPitchPos.x;
+        ball.y = bowlerPitchPos.y;
+
+        const bowlerObj = getCurrentBowlerObj();
+
+        if (gameState.currentInnings === 1) {
+            let isWide = Math.random() < 0.12;
+            if (isWide) {
+                ball.vx = Math.random() > 0.5 ? 3.5 : -3.5;
+                ball.vy = 5.5;
+            } else if (bowlerObj.type === "PACER") {
+                ball.vx = (Math.random() - 0.5) * 1.5;
+                ball.vy = 6.5 + Math.random() * 2.0;
+            } else {
+                ball.vx = (Math.random() - 0.5) * 0.8;
+                ball.vy = 4.2 + Math.random() * 1.0;
+            }
+        } else {
+            const targetX = gameState.targetPitchPos.x;
+            const targetY = gameState.targetPitchPos.y;
+
+            const timeToReach = bowlerObj.type === "PACER" ? 35 : 50;
+            ball.vx = (targetX - ball.x) / timeToReach;
+            ball.vy = (targetY - ball.y) / timeToReach;
+        }
+
+        ball.active = true;
+    }
+
+    function triggerCatchAnimation(fielderIndex, callback) {
+        activeCatchFielder = fielders[fielderIndex];
+        let targetFielder = activeCatchFielder;
+        
+        let catchInterval = setInterval(() => {
+            let dx = targetFielder.x - ball.x;
+            let dy = targetFielder.y - ball.y;
+            let dist = Math.hypot(dx, dy);
+
+            if (dist < 10) {
+                clearInterval(catchInterval);
+                ball.x = targetFielder.x;
+                ball.y = targetFielder.y;
+                callback();
+            } else {
+                ball.x += (dx / dist) * 12;
+                ball.y += (dy / dist) * 12;
+            }
+        }, 20);
+    }
+
+    function swingBat() {
+        if (!gameState.canSwing || gameState.ballHit) return;
+
+        batState.angle = 1.3;
+        const distToBatter = Math.abs(ball.y - batterPos.y);
+
+        if (distToBatter < 45 && ball.active) {
+            gameState.ballHit = true;
+            gameState.canSwing = false;
+
+            const timingError = Math.abs(ball.y - (batterPos.y - 10));
+
+            let isCatch = Math.random() < 0.12; 
+            let isRunout = !isCatch && Math.random() < 0.06; 
+
+            if (isCatch) {
+                let chosenFielderIdx = Math.floor(Math.random() * fielders.length);
+                triggerCatchAnimation(chosenFielderIdx, () => {
+                    displayOutcome("OUT! CAUGHT!", "#ff3366");
+                    recordBall(0, true);
+                });
+                return;
+            } else if (isRunout) {
+                displayOutcome("OUT! RUN OUT!", "#ff3366");
+                recordBall(0, true);
+                return;
+            }
+
+            let runs = 1;
+            if (timingError < 10) runs = 6;
+            else if (timingError < 22) runs = 4;
+            else if (timingError < 34) runs = 2;
+
+            const shotAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+            const shotSpeed = 7 + runs * 1.6;
+
+            ball.vx = Math.cos(shotAngle) * shotSpeed;
+            ball.vy = Math.sin(shotAngle) * shotSpeed;
+
+            displayOutcome(runs === 6 ? "SIX!" : runs === 4 ? "FOUR!" : `${runs} RUNS`, "#00e699");
+            recordBall(runs, false);
+        }
+    }
+
+    function aiSwingCheck() {
+        if (gameState.currentInnings === 2 && ball.active && !gameState.ballHit) {
+            const distToBatter = Math.abs(ball.y - batterPos.y);
+
+            if (distToBatter < 40) {
+                if (Math.random() < 0.75) {
+                    gameState.ballHit = true;
+                    batState.angle = 1.3;
+
+                    let isCatch = Math.random() < 0.12;
+                    let isRunout = !isCatch && Math.random() < 0.06;
+
+                    if (isCatch) {
+                        let chosenFielderIdx = Math.floor(Math.random() * fielders.length);
+                        triggerCatchAnimation(chosenFielderIdx, () => {
+                            displayOutcome("OUT! CAUGHT!", "#00e699");
+                            recordBall(0, true);
+                        });
+                        return;
+                    } else if (isRunout) {
+                        displayOutcome("OUT! RUN OUT!", "#00e699");
+                        recordBall(0, true);
+                        return;
+                    }
+
+                    const runsChance = Math.random();
+                    let runs = 1;
+                    if (runsChance > 0.85) runs = 6;
+                    else if (runsChance > 0.6) runs = 4;
+                    else if (runsChance > 0.3) runs = 2;
+
+                    const shotAngle = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+                    const shotSpeed = 7 + runs * 1.5;
+
+                    ball.vx = Math.cos(shotAngle) * shotSpeed;
+                    ball.vy = Math.sin(shotAngle) * shotSpeed;
+
+                    displayOutcome(runs === 6 ? "SIX!" : runs === 4 ? "FOUR!" : `${runs} RUNS`, "#ff3366");
+                    recordBall(runs, false);
+                }
+            }
+        }
+    }
+
+    function recordWideBall() {
+        if (gameState.isProcessingBall) return;
+        gameState.isProcessingBall = true;
+
+        gameState.totalRuns += 1;
+        gameState.bowlerStats.runsConceded += 1;
+        displayOutcome("WIDE BALL!\n+1 EXTRA", "#ffcc00");
+        updateScoreboard();
+
+        setTimeout(resetBall, 2000);
+    }
+
+    function recordBall(runs, isWicket) {
+        if (gameState.isProcessingBall) return;
+        gameState.isProcessingBall = true;
+        
+        gameState.totalBalls += 1;
+
+        if (isWicket) {
+            gameState.totalWickets += 1;
+            gameState.bowlerStats.wickets += 1;
+
+            if (gameState.totalWickets >= 10) {
+                endInnings();
+                return;
+            } else {
+                const teamKey = gameState.currentInnings === 1 ? gameState.userTeam : gameState.oppTeam;
+                gameState.batterIndex = (gameState.batterIndex + 1) % teamsData[teamKey].batsmen.length;
+                gameState.batterName = teamsData[teamKey].batsmen[gameState.batterIndex];
+                gameState.batterRuns = 0;
+                gameState.hasCelebrated50 = false;
+            }
+        } else {
+            gameState.totalRuns += runs;
+            gameState.batterRuns += runs;
+            gameState.bowlerStats.runsConceded += runs;
+
+            // 50-RUN CELEBRATION
+            if (gameState.batterRuns >= 50 && !gameState.hasCelebrated50) {
+                gameState.hasCelebrated50 = true;
+                batState.celebrating = true;
+                batState.angle = -Math.PI / 2;
+                displayOutcome("HALF CENTURY!\n🏏 50 RUNS!", "#ffcc00");
+            }
+
+            if (gameState.currentInnings === 2 && gameState.totalRuns > gameState.firstInningsRuns) {
+                updateScoreboard();
+                setTimeout(() => triggerGameOver(false), 1000);
+                return;
+            }
+        }
+
+        // Over Change
+        if (gameState.totalBalls % 6 === 0) {
+            const bowlingTeamKey = gameState.currentInnings === 1 ? gameState.oppTeam : gameState.userTeam;
+            const numBowlers = teamsData[bowlingTeamKey].bowlers.length;
+            gameState.bowlerIndex = (gameState.bowlerIndex + 1) % numBowlers;
+            gameState.bowlerStats = { wickets: 0, runsConceded: 0 };
+
+            if (gameState.currentInnings === 2) {
+                const newBowler = teamsData[gameState.userTeam].bowlers[gameState.bowlerIndex % numBowlers];
+                gameState.userBowlerType = newBowler.type;
+                btnToggleBowlType.innerText = `TYPE: ${gameState.userBowlerType}`;
+            }
+
+            displayOutcome("OVER COMPLETE!\nNEW BOWLER", "#00e699");
+        }
+
+        updateScoreboard();
+        setTimeout(resetBall, 2200);
+    }
+
+    function endInnings() {
+        if (gameState.currentInnings === 1) {
+            gameState.firstInningsRuns = gameState.totalRuns;
+            displayOutcome("INNINGS OVER!\nYOUR TURN TO BOWL!", "#00e699");
+            setTimeout(() => {
+                initInnings(2);
+                updateScoreboard();
+                resetBall();
+            }, 2500);
+        } else {
+            const userWon = gameState.firstInningsRuns > gameState.totalRuns;
+            triggerGameOver(userWon);
+        }
+    }
+
+    function triggerGameOver(userWon) {
+        document.getElementById('setup-form').style.display = 'none';
+        document.getElementById('game-over-summary').style.display = 'block';
+        document.getElementById('modal-title').innerText = "MATCH FINISHED";
+
+        if (userWon) {
+            document.getElementById('summary-title').innerText = "VICTORY! YOU WON!";
+            document.getElementById('summary-title').style.color = "#00e699";
+        } else {
+            document.getElementById('summary-title').innerText = "DEFEAT! OPPONENT WON!";
+            document.getElementById('summary-title').style.color = "#ff3366";
+        }
+
+        document.getElementById('final-score-text').innerText = 
+            `${gameState.userTeam}: ${gameState.firstInningsRuns}\n${gameState.oppTeam}: ${gameState.totalRuns}/${gameState.totalWickets}`;
+
+        document.getElementById('btn-start-game').innerText = "PLAY AGAIN";
+        document.getElementById('modal-screen').style.display = 'flex';
+    }
+
+    function displayOutcome(msg, color) {
+        overlayMsg.innerText = msg;
+        overlayMsg.style.color = color;
+        overlayMsg.style.opacity = '1';
+
+        setTimeout(() => {
+            overlayMsg.style.opacity = '0';
+        }, 1800);
+    }
+
+    function updateScoreboard() {
+        document.getElementById('ui-batter-name').innerText = gameState.batterName;
+        document.getElementById('ui-batter-runs').innerText = gameState.batterRuns;
+
+        const bowlerObj = getCurrentBowlerObj();
+        document.getElementById('ui-bowler-name').innerText = bowlerObj.name;
+        document.getElementById('ui-bowler-type').innerText = bowlerObj.type;
+        document.getElementById('ui-bowler-stats').innerText = `${gameState.bowlerStats.wickets}/${gameState.bowlerStats.runsConceded}`;
+
+        document.getElementById('ui-score').innerText = `${gameState.totalRuns} / ${gameState.totalWickets}`;
+        const overs = `${Math.floor(gameState.totalBalls / 6)}.${gameState.totalBalls % 6}`;
+        document.getElementById('ui-overs').innerText = `Overs: ${overs}`;
+    }
+
+    // Update Physics
+    function updatePhysics() {
+        if (ball.active) {
+            const bowlerObj = getCurrentBowlerObj();
+
+            if (bowlerObj.type === "SPINNER" && !ball.bounced && ball.y > pitch.y + pitch.height / 2) {
+                ball.bounced = true;
+                ball.vx += (Math.random() > 0.5 ? 1.2 : -1.2);
+            }
+
+            ball.x += ball.vx;
+            ball.y += ball.vy;
+
+            if (gameState.currentInnings === 2) {
+                aiSwingCheck();
+            }
+
+            // WIDE BALL DETECTION
+            const isWide = !gameState.ballHit && (ball.x < pitch.x - 10 || ball.x > pitch.x + pitch.width + 10) && ball.y > pitch.y + 100;
+            if (isWide && !gameState.isProcessingBall) {
+                ball.active = false;
+                gameState.canSwing = false;
+                recordWideBall();
+                return;
+            }
+
+            // EXACT HIT BOX CHECK FOR WICKETS
+            const hitsWicket = (
+                ball.x >= wicketRect.x && 
+                ball.x <= wicketRect.x + wicketRect.width &&
+                ball.y >= wicketRect.y && 
+                ball.y <= wicketRect.y + wicketRect.height
+            );
+
+            if (hitsWicket && !gameState.isProcessingBall) {
+                ball.active = false;
+                gameState.canSwing = false;
+                displayOutcome("OUT! BOWLED!", "#ff3366");
+                recordBall(0, true);
+            } else if (!gameState.ballHit && ball.y > batterPos.y + 35 && !gameState.isProcessingBall) {
+                // Ball passed the wickets safely -> DOT BALL
+                ball.active = false;
+                gameState.canSwing = false;
+                displayOutcome("DOT BALL", "#a0a8c0");
+                recordBall(0, false);
+            }
+        }
+    }
+
+    // Render Graphics
+    function render() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Field Grass
+        ctx.fillStyle = '#1e7b3a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Boundary Ring
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, 230, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Fielders - Clearly Visible Circles with Outlines
+        const fieldingTeamColor = gameState.currentInnings === 1 ? teamsData[gameState.oppTeam].color : teamsData[gameState.userTeam].color;
+        fielders.forEach(f => {
+            ctx.fillStyle = (f === activeCatchFielder) ? '#ffcc00' : fieldingTeamColor;
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(f.x, f.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Fielder head
+            ctx.fillStyle = '#f0c8a0';
+            ctx.beginPath();
+            ctx.arc(f.x, f.y - 2, 5, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // Pitch
+        ctx.fillStyle = '#d2b48c';
+        ctx.fillRect(pitch.x, pitch.y, pitch.width, pitch.height);
+
+        // Creases
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(pitch.x + 10, pitch.y + 35);
+        ctx.lineTo(pitch.x + pitch.width - 10, pitch.y + 35);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(pitch.x + 10, pitch.y + pitch.height - 35);
+        ctx.lineTo(pitch.x + pitch.width - 10, pitch.y + pitch.height - 35);
+        ctx.stroke();
+
+        // Pitch Target Marker
+        if (gameState.currentInnings === 2 && !gameState.isBowling) {
+            ctx.strokeStyle = '#ff0055';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(gameState.targetPitchPos.x, gameState.targetPitchPos.y, 12, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(gameState.targetPitchPos.x, gameState.targetPitchPos.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Stumps
+        ctx.fillStyle = '#ffffff';
+        for (let i = -1; i <= 1; i++) {
+            ctx.fillRect(bowlerPitchPos.x + i * 6 - 1, bowlerPitchPos.y - 20, 3, 10);
+            ctx.fillRect(batterPos.x + i * 6 - 1, batterPos.y + 12, 3, 10);
+        }
+
+        // Bowler
+        const bowlerTeamColor = fieldingTeamColor;
+        ctx.save();
+        ctx.translate(currentBowlerPos.x, currentBowlerPos.y);
+        ctx.fillStyle = bowlerTeamColor;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#f0c8a0';
+        ctx.beginPath();
+        ctx.arc(0, -2, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // Batsman
+        const batterTeamColor = gameState.currentInnings === 1 ? teamsData[gameState.userTeam].color : teamsData[gameState.oppTeam].color;
+        ctx.save();
+        ctx.translate(batterPos.x - 14, batterPos.y);
+
+        ctx.fillStyle = batterTeamColor;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#111';
+        ctx.beginPath();
+        ctx.arc(0, -2, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bat
+        ctx.save();
+        ctx.rotate(batState.angle);
+        ctx.fillStyle = batState.celebrating ? '#ffcc00' : '#8b5a2b';
+        ctx.fillRect(2, -3, 26, 6);
+        ctx.fillStyle = '#111';
+        ctx.fillRect(0, -2, 5, 4);
+        ctx.restore();
+
+        ctx.restore();
+
+        // Ball
+        if (ball.active || gameState.isBowling) {
+            ctx.fillStyle = '#cc0000';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+        }
+    }
+
+    function gameLoop() {
+        updatePhysics();
+        render();
+        requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+</script>
+</body>
+</html>
